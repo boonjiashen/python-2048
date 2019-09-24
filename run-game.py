@@ -1,5 +1,6 @@
 import enum
 import random
+import keyboard
 from typing import Tuple, List
 
 class Tile():
@@ -8,9 +9,12 @@ class Tile():
 
 class TilePower(int, Tile):
     """1 to 11"""
+    MIN_POWER = 1
+    MAX_POWER = 11
+
     def __new__(cls, x):
-        if not 1 <= x <= 11:
-            raise Exception(f"Needs to be 1 <= x <= 11 but is {x}")
+        if not cls.MIN_POWER <= x <= cls.MAX_POWER:
+            raise Exception(f"Needs to be {cls.MIN_POWER} <= x <= {cls.MAX_POWER} but is {x}")
         return int.__new__(cls, x)
 
     def __str__(self):
@@ -39,11 +43,26 @@ class Board(tuple):
         rows = (" | ".join(str(x) for x in row) for row in self)
         return "\n".join(rows)
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __eq__(self, other):
+        """True if value of each tile is the same"""
+        def is_tile_eq(x, y):
+            if x == BLANK_TILE and y == BLANK_TILE:
+                return True
+            if x != BLANK_TILE and y != BLANK_TILE:
+                return x == y
+            return False
+        self_tiles = [x for row in self for x in row]
+        other_tiles = [x for row in other for x in row]
+        return all(x == y for x, y in zip(self_tiles, other_tiles))
+
 
 class Transformation():
     pass
 
-class SpawnerTransformation(Transformation):
+class SpawnTransform(Transformation):
     CHANCE_OF_4_SPAWN = 0.2
 
     def __get_blank_locations(self, board: Board) -> List[Tuple[int]]:
@@ -125,17 +144,75 @@ class DownTransform(Transformation):
 
         return board
 
-leftTransform = LeftTransform()
-rightTransform = RightTransform()
-upTransform = UpTransform()
-downTransform = DownTransform()
+
+class Direction(enum.Enum):
+    UP = enum.auto()
+    DOWN = enum.auto()
+    LEFT = enum.auto()
+    RIGHT = enum.auto()
+
+class Game():
+    def __init__(self,
+                 initialState,
+                 spawnTransform=SpawnTransform(),
+                 leftTransform=LeftTransform(),
+                 rightTransform=RightTransform(),
+                 upTransform=UpTransform(),
+                 downTransform=DownTransform(),
+                 ):
+        self._board = initialState
+        self._spawnTransform = spawnTransform
+        self._upTransform = upTransform
+        self._downTransform = downTransform
+        self._leftTransform = leftTransform
+        self._rightTransform = rightTransform
+
+    def get_curr_state(self) -> Board:
+        return self._board
+
+    def swipe(self, direction: Direction) -> None:
+        transforms = {
+            Direction.UP: self._upTransform,
+            Direction.DOWN: self._downTransform,
+            Direction.LEFT: self._leftTransform,
+            Direction.RIGHT: self._rightTransform,
+        }
+        next_board = transforms[direction].transform(self._board)
+        if next_board != self._board:
+            self._board = self._spawnTransform.transform(next_board)
 
 EMPTY_BOARD = Board([[BLANK_TILE] * Board.HEIGHT] * Board.WIDTH)
-row = (TilePower(1), TilePower(1), TilePower(3), TilePower(4))
-some_board = Board([row] * 4)
 
-spawnerTrans = SpawnerTransformation()
+def generate_random_board():
+    def generate_random_tile():
+        if random.random() < 0.5:
+            return BLANK_TILE
+        return TilePower(random.randint(TilePower.MIN_POWER, TilePower.MAX_POWER))
+    return Board(tuple(tuple(generate_random_tile() for _ in range(Board.WIDTH))
+                       for _ in range(Board.HEIGHT)))
+
+def run_game():
+    initial_state = SpawnTransform().transform(EMPTY_BOARD)
+    game = Game(initial_state)
+
+    def on_arrow_keypress(event):
+        directions = {
+            "up": Direction.UP,
+            "down": Direction.DOWN,
+            "left": Direction.LEFT,
+            "right": Direction.RIGHT,
+        }
+        if event.name not in directions:
+            return
+
+        game.swipe(directions[event.name])
+        print()
+        print(game.get_curr_state())
+
+    keyboard.on_press(on_arrow_keypress)
+    print(game.get_curr_state())
+    while True:
+        pass
 
 if __name__ == "__main__":
-    print(some_board)
-    print(downTransform.transform(some_board))
+    run_game()
