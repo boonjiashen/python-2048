@@ -85,7 +85,50 @@ class LeftTransform(Transformation):
         return Board([transform_row(row) for row in board])
 
 
+def flipLeftRight(board: Board) -> Board:
+    return Board([row[::-1] for row in board])
+
+
+def transpose(board: Board) -> Board:
+    return Board(list(zip(*[row for row in board])))
+
+
+class RightTransform(Transformation):
+    """User presses right button"""
+
+    def transform(self, board: Board) -> Board:
+        board = flipLeftRight(board)
+        board = LeftTransform().transform(board)
+        board = flipLeftRight(board)
+
+        return board
+
+
+class UpTransform(Transformation):
+    """User presses up button"""
+
+    def transform(self, board: Board) -> Board:
+        board = transpose(board)
+        board = LeftTransform().transform(board)
+        board = transpose(board)
+
+        return board
+
+
+class DownTransform(Transformation):
+    """User presses down button"""
+
+    def transform(self, board: Board) -> Board:
+        board = flipLeftRight(transpose(board))
+        board = LeftTransform().transform(board)
+        board = transpose(flipLeftRight(board))
+
+        return board
+
 leftTransform = LeftTransform()
+rightTransform = RightTransform()
+upTransform = UpTransform()
+downTransform = DownTransform()
 
 EMPTY_BOARD = Board([[BLANK_TILE] * Board.HEIGHT] * Board.WIDTH)
 row = (TilePower(1), TilePower(1), TilePower(3), TilePower(4))
@@ -94,5 +137,5 @@ some_board = Board([row] * 4)
 spawnerTrans = SpawnerTransformation()
 
 if __name__ == "__main__":
-    curr_board = EMPTY_BOARD
-    print(leftTransform.transform(some_board))
+    print(some_board)
+    print(downTransform.transform(some_board))
