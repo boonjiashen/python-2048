@@ -1,6 +1,7 @@
 import enum
 import random
 import keyboard
+import sys
 from typing import Tuple, List
 
 class Tile():
@@ -20,9 +21,10 @@ class TilePower(int, Tile):
     def __str__(self):
         return str(2**self)
 
-class _BlankTile(Tile):
-    def __str__(self):
-        return " "
+
+class _BlankTile(str, Tile):
+    pass
+
 
 BLANK_TILE = _BlankTile()
 
@@ -151,6 +153,7 @@ class Direction(enum.Enum):
     LEFT = enum.auto()
     RIGHT = enum.auto()
 
+
 class Game():
     def __init__(self,
                  initialState,
@@ -170,7 +173,22 @@ class Game():
     def get_curr_state(self) -> Board:
         return self._board
 
+    def has_succeeded(self) -> bool:
+        return any(x == TilePower(TilePower.MAX_POWER)
+                   for row in self._board
+                   for x in row)
+
+    def has_failed(self) -> bool:
+        return not any(x == BLANK_TILE
+                       for row in self._board
+                       for x in row)
+
+    def has_ended(self) -> bool:
+        return self.has_succeeded() or self.has_failed()
+
     def swipe(self, direction: Direction) -> None:
+        if self.has_ended():
+            raise Exception("Game has already ended")
         transforms = {
             Direction.UP: self._upTransform,
             Direction.DOWN: self._downTransform,
@@ -181,17 +199,27 @@ class Game():
         if next_board != self._board:
             self._board = self._spawnTransform.transform(next_board)
 
-EMPTY_BOARD = Board([[BLANK_TILE] * Board.HEIGHT] * Board.WIDTH)
 
-def generate_random_board():
-    def generate_random_tile():
+def generate_random_board() -> Board:
+    def generate_random_tile() -> Tile:
         if random.random() < 0.5:
             return BLANK_TILE
         return TilePower(random.randint(TilePower.MIN_POWER, TilePower.MAX_POWER))
     return Board(tuple(tuple(generate_random_tile() for _ in range(Board.WIDTH))
                        for _ in range(Board.HEIGHT)))
 
+
+def display(board: Board) -> None:
+    rows = (" | ".join([""] + [f"{str(x):>4}" for x in row] + [""]) for row in board)
+    ruler = " " + "-" * 29 + " "
+    print(ruler)
+    for row in rows:
+        print(row)
+    print(ruler)
+
+
 def run_game():
+    EMPTY_BOARD = Board([[BLANK_TILE] * Board.HEIGHT] * Board.WIDTH)
     initial_state = SpawnTransform().transform(EMPTY_BOARD)
     game = Game(initial_state)
 
@@ -207,12 +235,22 @@ def run_game():
 
         game.swipe(directions[event.name])
         print()
-        print(game.get_curr_state())
+        print()
+        display(game.get_curr_state())
+
+        if game.has_ended():
+            print("Game has ended!")
+            if game.has_succeeded():
+                print("You won!")
+            if game.has_failed:
+                print("You lost! Try again next time!")
+            sys.exit()
 
     keyboard.on_press(on_arrow_keypress)
-    print(game.get_curr_state())
+    display(game.get_curr_state())
     while True:
         pass
+
 
 if __name__ == "__main__":
     run_game()
